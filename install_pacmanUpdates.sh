@@ -15,3 +15,22 @@ if [ -f /etc/pacman.conf ] && [ ! -f /etc/pacman.conf.t2.bkp ]; then
 else
     echo -e "\033[0;33m[SKIP]\033[0m pacman is already configured..."
 fi
+
+# Define the repository configuration to append
+REPO_CONFIG="
+[wrkx-arch-repo]
+SigLevel = Optional DatabaseOptional
+Server = https://wrkx.github.io/wrkx-arch-repo/x86_64
+"
+
+# Path to the pacman.conf file
+PACMAN_CONF="/etc/pacman.conf"
+
+# Check if the repository is already added
+if ! grep -q "\[wrkx-arch-repo\]" "$PACMAN_CONF"; then
+  # Append the repository configuration to pacman.conf
+  echo "$REPO_CONFIG" | sudo tee -a "$PACMAN_CONF" > /dev/null
+  echo "Repository [wrkx-arch-repo] added to pacman.conf."
+else
+  echo "Repository [wrkx-arch-repo] is already present in pacman.conf."
+fi

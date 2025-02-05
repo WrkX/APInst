@@ -93,4 +93,5 @@ while true; do
             echo "Invalid selection: '$choice'. Please choose valid numbers, 0, or 'q'."
         fi
     done
+    exit 0
 done
