@@ -16,6 +16,10 @@ else
     echo -e "\033[0;33m[SKIP]\033[0m pacman is already configured..."
 fi
 
+MAKEPKG_CONF="/etc/makepkg.conf"
+cp $MAKEPKG_CONF ${MAKEPKG_CONF}.bak
+sed -i 's/\bdebug\b/!debug/g' $MAKEPKG_CONF
+
 # Define the repository configuration to append
 REPO_CONFIG="
 [wrkx-arch-repo]
@@ -34,3 +38,5 @@ if ! grep -q "\[wrkx-arch-repo\]" "$PACMAN_CONF"; then
 else
   echo "Repository [wrkx-arch-repo] is already present in pacman.conf."
 fi
+
+pacman -Syy
