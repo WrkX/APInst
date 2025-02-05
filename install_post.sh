@@ -25,8 +25,10 @@ fstrim -av
 # 3. Erfolgsmeldung
 echo "TRIM wurde aktiviert und auf allen unterstützten Partitionen ausgeführt."
 
-sudo systemctl enable ufw
+sudo systemctl enable --now ufw
 echo "UFW wurde aktiviert"
+
+sudo systemctl enable --now NetworkManager.service
 
 # Zsh als Standard-Shell für den aktuellen Benutzer setzen
 echo "Setze Zsh als Standard-Shell für den Benutzer $USER..."
@@ -72,3 +74,36 @@ When=PostTransaction
 NeedsTargets
 Exec=/bin/sh -c 'while read -r trg; do case \$trg in linux*) exit 0; esac; done; /usr/bin/mkinitcpio -P'
 EOF
+
+sudo mkdir -p /games
+
+# Auto create FSTAB for home labeled partition
+UUID=$(lsblk -o UUID,LABEL | grep 'home' | awk '{print $1}')
+
+# Check if UUID was found
+if [ -z "$UUID" ]; then
+    echo "Error: No partition with label 'home' found."
+    exit 1
+fi
+
+# Append the entry to /etc/fstab (adjust the mount point and file system type as needed)
+echo "UUID=$UUID  /home	btrfs		defaults,noatime,autodefrag,compress=zstd 0 0" | sudo tee -a /etc/fstab
+
+echo "Entry for 'home' added to /etc/fstab."
+
+
+
+
+# Auto create FSTAB for games or steam labeled partition
+UUID=$(lsblk -o UUID,LABEL | grep -E 'games|steam' | awk '{print $1}')
+
+# Check if UUID was found
+if [ -z "$UUID" ]; then
+    echo "Error: No partition with label 'games' or 'steam' found."
+    exit 1
+fi
+
+# Append the entry to /etc/fstab (adjust the mount point and file system type as needed)
+echo "UUID=$UUID  /games  ntfs-3g  defaults,locale=en_US.UTF-8,uid=1000,gid=1000,umask=0022 0 2" | sudo tee -a /etc/fstab
+
+echo "Entry for 'games' or 'steam' added to /etc/fstab."
