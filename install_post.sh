@@ -25,56 +25,38 @@ fstrim -av
 # 3. Erfolgsmeldung
 echo "TRIM wurde aktiviert und auf allen unterstützten Partitionen ausgeführt."
 
-sudo systemctl enable --now ufw
-echo "UFW wurde aktiviert"
+sudo systemctl enable ufw
+sudo systemctl enable NetworkManager.service
 
-sudo systemctl enable --now NetworkManager.service
 
-# Zsh als Standard-Shell für den aktuellen Benutzer setzen
+# Create zshenv file so I can put .zshrc in config folder #
+###########################################################
+ZSHENV_FILE="/etc/zsh/zshenv"
+
+# Ensure /etc/zsh directory exists
+if [ ! -d "/etc/zsh" ]; then
+    echo "Creating /etc/zsh directory..."
+    sudo mkdir -p /etc/zsh
+fi
+
+# Write the export statement to the file
+echo 'export ZDOTDIR="$HOME"/.config/zsh' | sudo tee "$ZSHENV_FILE" > /dev/null
+
+# Set appropriate permissions (readable by all, writable only by root)
+sudo chmod 644 "$ZSHENV_FILE"
+
+# Confirm the changes
+echo "Created $ZSHENV_FILE with the following content:"
+sudo cat "$ZSHENV_FILE"
+############################################################
+
+# Zsh als Standard-Shell für den aktuellen Benutzer setzen #
+############################################################
 echo "Setze Zsh als Standard-Shell für den Benutzer $USER..."
-chsh -s "$(which zsh)" "$USER"
+############################################################
 
-# NVIDIA changes
-# Define the bootloader entries directory and mkinitcpio config file path
-bootloader_entries_dir="/boot/loader/entries"
-mkinitcpio_config="/etc/mkinitcpio.conf"
-
-# 1. Navigate to the bootloader entries directory
-cd "$bootloader_entries_dir" || exit 1
-
-# 2. Find the bootloader entry file ending with "_linux.conf"
-filename=$(ls *_linux.conf | head -n 1)
-
-if [[ -f "$filename" ]]; then
-    # Backup the file before modifying
-    sudo cp "$filename" "$filename.bak"
-
-    # Append the necessary options to the conf file
-    sudo sed -i '/options/s/$/ nvidia-drm.modeset=
-
-# Nvidia hook
-# echo "Creating pacman hook for NVIDIA..."
-cat > /etc/pacman.d/hooks/nvidia.hook <<EOF
-[Trigger]
-Operation=Install
-Operation=Upgrade
-Operation=Remove
-Type=Package
-# You can remove package(s) that don't apply to your config, e.g. if you only use nvidia-open you can remove nvidia-lts as a Target
-Target=nvidia
-Target=nvidia-open
-Target=nvidia-lts
-# If running a different kernel, modify below to match
-Target=linux
-
-[Action]
-Description=Updating NVIDIA module in initcpio
-Depends=mkinitcpio
-When=PostTransaction
-NeedsTargets
-Exec=/bin/sh -c 'while read -r trg; do case \$trg in linux*) exit 0; esac; done; /usr/bin/mkinitcpio -P'
-EOF
-
+# FStab entries #
+#############################################################
 sudo mkdir -p /games
 
 # Auto create FSTAB for home labeled partition
@@ -91,9 +73,6 @@ echo "UUID=$UUID  /home	btrfs		defaults,noatime,autodefrag,compress=zstd 0 0" | 
 
 echo "Entry for 'home' added to /etc/fstab."
 
-
-
-
 # Auto create FSTAB for games or steam labeled partition
 UUID=$(lsblk -o UUID,LABEL | grep -E 'games|steam' | awk '{print $1}')
 
@@ -107,5 +86,63 @@ fi
 echo "UUID=$UUID  /games  ntfs-3g  defaults,locale=en_US.UTF-8,uid=1000,gid=1000,umask=0022 0 2" | sudo tee -a /etc/fstab
 
 echo "Entry for 'games' or 'steam' added to /etc/fstab."
+########################################################################
 
+# Setup SDDM Theme #
+########################################################################
+SDDM_CONF_DIR="/etc/sddm.conf.d"
+SDDM_CONF_FILE="$SDDM_CONF_DIR/theme.conf"
+THEME_NAME="catppuccin-frappe"   # Replace this with your desired theme name
+
+# Ensure the SDDM configuration directory exists
+if [ ! -d "$SDDM_CONF_DIR" ]; then
+    echo "Creating $SDDM_CONF_DIR..."
+    sudo mkdir -p "$SDDM_CONF_DIR"
+fi
+
+# Create the SDDM configuration file with the theme settings
+echo "[Theme]
+Current=$THEME_NAME" | sudo tee "$SDDM_CONF_FILE" > /dev/null
+
+# Set proper permissions
+sudo chmod 644 "$SDDM_CONF_FILE"
+
+# Confirm the configuration
+echo "SDDM theme configuration created at $SDDM_CONF_FILE with the following content:"
+sudo cat "$SDDM_CONF_FILE"
+#####################################################################
+
+# Create paccache timer
+###################################################################
+TIMER_FILE="/etc/systemd/system/paccache.timer"
+
+# Create the systemd timer file
+echo "Creating paccache.timer..."
+sudo tee "$TIMER_FILE" > /dev/null <<EOF
+[Unit]
+Description=Clean-up old pacman pkg cache
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Set appropriate permissions
+sudo chmod 644 "$TIMER_FILE"
+
+# Reload systemd to recognize the new timer
+sudo systemctl daemon-reload
+
+# Enable and start the timer
+echo "Enabling and starting paccache.timer..."
+sudo systemctl enable paccache.timer
+#####################################################################
+
+# Final settings #
+# ###################################################################
 sudo usermod -aG gamemode,wheel $(whoami)
+chsh -s "$(which zsh)" "$USER"
+######################################################################
