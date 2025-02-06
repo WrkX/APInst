@@ -107,3 +107,5 @@ fi
 echo "UUID=$UUID  /games  ntfs-3g  defaults,locale=en_US.UTF-8,uid=1000,gid=1000,umask=0022 0 2" | sudo tee -a /etc/fstab
 
 echo "Entry for 'games' or 'steam' added to /etc/fstab."
+
+sudo usermod -aG gamemode,wheel $(whoami)
